@@ -9,6 +9,8 @@ jobs:
   release-plugin:
     name: Release nocalhost-vscode-plugin
     runs-on: ubuntu-latest
+    environment:
+      name: release
     steps:
     - name: Set up Node 1.x
       uses: actions/setup-node@v2.1.3
@@ -24,12 +26,12 @@ jobs:
     - name: Update the version of package.json
       env:
         VERSION: ${{ env.RELEASE_VERSION }}
+        MINIMUNM_VERSION_REQUIREMENT: ${{ secrets.MINIMUNM_VERSION_REQUIREMENT }}
       run: node scripts/updateVersion.js
 
     - name: build
       env:
         VERSION: ${{ env.RELEASE_VERSION }}
-        MINIMUNM_VERSION_REQUIREMENT: ${{ secrets.MINIMUNM_VERSION_REQUIREMENT }}
       run: |
         npm i -g yarn
         yarn install

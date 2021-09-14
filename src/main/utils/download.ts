@@ -14,11 +14,11 @@ export const lock = async function (): Promise<void> {
     fs.existsSync(lockDir) && fs.rmdirSync(lockDir);
     fs.mkdir(lockDir, function (error) {
       if (error) {
-        rej(error);
+        rej(`${error}, lockerror`);
       }
       fs.writeFile(processDir, "true", function (err) {
         if (err) {
-          rej(err);
+          rej(`${err}, lockerror`);
         }
         res();
       });
@@ -28,35 +28,40 @@ export const lock = async function (): Promise<void> {
 
 export const unlock = async function (callback?: (err?: any) => void) {
   try {
-    const files = fs.readdirSync(lockDir);
-    for (let i = 0; i < (files || []).length; i++) {
-      const file = path.resolve(lockDir, files[i]);
-      fs.unlinkSync(file);
+    if (fs.existsSync(lockDir)) {
+      const files = fs.readdirSync(lockDir);
+      for (let i = 0; i < (files || []).length; i++) {
+        const file = path.resolve(lockDir, files[i]);
+        fs.unlinkSync(file);
+      }
+      fs.rmdirSync(lockDir);
     }
-    fs.rmdirSync(lockDir);
 
     if (callback) {
       callback(true);
     }
   } catch (e) {
     logger.error(e);
-    callback(e);
+    if (callback) {
+      callback();
+    }
   }
 };
 
-export const downloadNhctl = async (
-  downloadUrl: string,
+async function download(
+  url: string,
   destinationPath: string,
   onDownloadProgress: (progress: number) => void
-) => {
+) {
   return new Promise((res, rej) => {
-    Axios.get(downloadUrl, {
+    Axios.get(url, {
       responseType: "stream",
     })
       .then((response: AxiosResponse<Readable>) => {
         const { data, headers } = response;
 
         const totalLength = headers["content-length"];
+
         data
           .on("data", (chunk: Buffer) => {
             onDownloadProgress((chunk.length / totalLength) * 100);
@@ -70,4 +75,19 @@ export const downloadNhctl = async (
       })
       .catch(rej);
   });
+}
+
+export const downloadNhctl = async (
+  pkgs: string[],
+  destinationPath: string,
+  onDownloadProgress: (progress: number) => void
+) => {
+  for (const pkg of pkgs) {
+    try {
+      await download(pkg, destinationPath, onDownloadProgress);
+      break;
+    } catch (error) {
+      logger.error("downloadNhctl", pkg, destinationPath, error);
+    }
+  }
 };
